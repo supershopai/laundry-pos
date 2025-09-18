@@ -18,5 +18,11 @@ module.exports = defineConfig({
       resolve: "./src/modules/pos",
       key: "pos"
     }
-  ]
+  ],
+  plugins: [
+    {
+      resolve: "@rsc-labs/medusa-store-analytics-v2",
+      options: {}
+    }
+]
 })
