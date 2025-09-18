@@ -17,7 +17,10 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/pos",
       key: "pos"
-    }
+    },
+    {
+      resolve: "./src/modules/invoice-generator",
+    },
   ],
   plugins: [
     {
