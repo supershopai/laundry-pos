@@ -688,10 +688,22 @@ class InvoiceGeneratorService extends MedusaService({
     }
   
     private async imageUrlToBase64(url: string): Promise<string> {
-      const response = await axios.get(url, { responseType: "arraybuffer" })
-      const base64 = Buffer.from(response.data).toString("base64")
-      const mimeType = response.headers["content-type"] || "image/png"
-      return `data:${mimeType};base64,${base64}`
+      try {
+        const response = await axios.get(url, { responseType: "arraybuffer" })
+        const base64 = Buffer.from(response.data).toString("base64")
+        let mimeType = response.headers["content-type"] || "image/png"
+        
+        // Convert webp to png for pdfmake compatibility
+        if (mimeType === "image/webp") {
+          mimeType = "image/png"
+        }
+        
+        return `data:${mimeType};base64,${base64}`
+      } catch (error) {
+        console.log('⚠️ Error converting image to base64:', error.message)
+        // Return a placeholder if image conversion fails
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+      }
     }
   }
 

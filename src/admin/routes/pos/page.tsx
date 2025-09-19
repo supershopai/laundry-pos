@@ -780,6 +780,26 @@ const POSPage = () => {
           onApplyDiscount={applyDiscount}
           onRemoveDiscount={removeDiscount}
           onCompleteOrder={completeOrder}
+          onPaymentSuccess={async (orderId: string) => {
+            console.log('🎉 Razorpay payment successful, order created:', orderId)
+            setOrderSuccessDialog({
+              isOpen: true,
+              orderId: orderId,
+              isSuccess: true,
+              message: `Order #${orderId} created successfully!`
+            })
+            // Create new cart after successful payment
+            await initializeCart()
+          }}
+          onPaymentError={(error: string) => {
+            console.error('❌ Razorpay payment failed:', error)
+            setOrderSuccessDialog({
+              isOpen: true,
+              orderId: null,
+              isSuccess: false,
+              message: `Payment failed: ${error}`
+            })
+          }}
         />
       </div>
 

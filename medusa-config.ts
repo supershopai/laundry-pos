@@ -33,12 +33,14 @@ module.exports = defineConfig({
       resolve: "@medusajs/order",
       key: "order"
     },
+    {
+      resolve: "@medusajs/medusa/payment"
+    }
   ],
   plugins: [
-    // Temporarily disabled to test promotions tab
-    // {
-    //   resolve: "@rsc-labs/medusa-store-analytics-v2",
-    //   options: {}
-    // }
-]
+    {
+      resolve: "@rsc-labs/medusa-store-analytics-v2",
+      options: {}
+    }
+  ]
 })

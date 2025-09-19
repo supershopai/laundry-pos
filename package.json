@@ -44,7 +44,9 @@
     "pdfkit": "^0.15.1",
     "pdfmake": "^0.2.20",
     "pg": "^8.13.0",
+    "razorpay": "^2.9.6",
     "react-hook-form": "^7.53.0",
+    "react-razorpay": "^3.0.1",
     "recharts": "^2.13.3"
   },
   "devDependencies": {

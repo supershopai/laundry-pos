@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Cart as CartInterface, Customer } from '../page'
+import { RazorpayPaymentButton } from './RazorpayPaymentButton'
 
 interface CartProps {
   cart: CartInterface | null
@@ -21,6 +22,8 @@ interface CartProps {
   onApplyDiscount: () => void
   onRemoveDiscount: () => void
   onCompleteOrder: (paymentMethod: string) => void
+  onPaymentSuccess: (orderId: string, orderDetails?: any) => void
+  onPaymentError: (error: string) => void
 }
 
 export const Cart: React.FC<CartProps> = ({
@@ -39,7 +42,9 @@ export const Cart: React.FC<CartProps> = ({
   onDiscountCodeChange,
   onApplyDiscount,
   onRemoveDiscount,
-  onCompleteOrder
+  onCompleteOrder,
+  onPaymentSuccess,
+  onPaymentError
 }) => {
   const cartItemsRef = useRef<HTMLDivElement>(null)
   const [isNewCustomerDialogOpen, setIsNewCustomerDialogOpen] = useState(false)
@@ -663,34 +668,13 @@ export const Cart: React.FC<CartProps> = ({
               >
                 {dataLoading ? 'Processing...' : 'Pay with Cash'}
               </button>
-              <button
-                onClick={() => handlePaymentClick('card')}
+              <RazorpayPaymentButton
+                cart={cart}
+                selectedCustomer={selectedCustomer}
+                onPaymentSuccess={onPaymentSuccess}
+                onPaymentError={onPaymentError}
                 disabled={dataLoading}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: dataLoading ? 'var(--ui-bg-disabled)' : '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: dataLoading ? 'not-allowed' : 'pointer',
-                  transition: 'background-color 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  if (!dataLoading) {
-                    e.currentTarget.style.backgroundColor = '#2563eb'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!dataLoading) {
-                    e.currentTarget.style.backgroundColor = '#3b82f6'
-                  }
-                }}
-              >
-                {dataLoading ? 'Processing...' : 'Pay with Card'}
-              </button>
+              />
             </div>
           </div>
         </div>
