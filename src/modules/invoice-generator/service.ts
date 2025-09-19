@@ -1,4 +1,5 @@
 import { MedusaService } from "@medusajs/framework/utils"
+import { Modules } from "@medusajs/framework/utils"
 import { InvoiceConfig } from "./models/invoice-config"
 import { Invoice, InvoiceStatus } from "./models/invoice"
 import PdfPrinter from "pdfmake"
@@ -487,11 +488,34 @@ class InvoiceGeneratorService extends MedusaService({
         })
       }
     
-      async generateThermalOrderPdf(params: GeneratePdfParams): Promise<Buffer> {
+      async generateThermalOrderPdf(params: GeneratePdfParams, container?: any): Promise<Buffer> {
         const order: any = params.order
         const items = params.items as any[]
         const configs = await this.listInvoiceConfigs()
         const cfg: any = configs[0] || {}
+        
+        // Get the order module service to retrieve calculated totals
+        const orderModuleService = container?.resolve(Modules.ORDER)
+        
+        // Retrieve order with calculated totals using Medusa's built-in method
+        let calculatedOrder = order
+        if (orderModuleService) {
+          try {
+            calculatedOrder = await orderModuleService.retrieveOrder(order.id, {
+              relations: ['items', 'items.adjustments']
+            })
+            console.log('📊 Thermal printer - Order retrieved with calculated totals:', {
+              subtotal: calculatedOrder.subtotal,
+              discount_total: calculatedOrder.discount_total,
+              tax_total: calculatedOrder.tax_total,
+              total: calculatedOrder.total
+            })
+          } catch (error) {
+            console.log('⚠️ Could not retrieve calculated order totals, using provided order:', error.message)
+          }
+        } else {
+          console.log('⚠️ Order module service not available, using provided order')
+        }
 
         const headerBlocks: any[] = []
         if (cfg.company_logo) {
@@ -515,10 +539,71 @@ class InvoiceGeneratorService extends MedusaService({
           ...itemRows,
         ]
 
-        // Compute total robustly when order.total is missing
-        const computedTotal = typeof (order.total) === 'number' && !isNaN(order.total)
-          ? order.total
-          : items.reduce((sum, i) => sum + ((i?.total != null ? i.total : (i?.unit_price || 0) * (i?.quantity || 1)) || 0), 0)
+        // Helper function to safely convert BigNumber or number to number
+        const safeNumber = (value: any): number => {
+          if (value?.toNumber) return value.toNumber()
+          if (typeof value === 'number' && !isNaN(value)) return value
+          return 0
+        }
+        
+        // Calculate subtotal from order items
+        const calculatedSubtotal = calculatedOrder.items?.reduce((total, item) => {
+          const itemTotal = (item.unit_price || 0) * (item.quantity || 1)
+          return total + itemTotal
+        }, 0) || 0
+        
+        // Calculate discount total from order item adjustments
+        const calculatedDiscountTotal = calculatedOrder.items?.reduce((total, item) => {
+          const itemDiscount = item.adjustments?.reduce((sum, adj) => {
+            let amount = adj.amount || 0
+            if (amount && typeof amount === 'object' && amount.toNumber) {
+              amount = amount.toNumber()
+            }
+            return sum + amount
+          }, 0) || 0
+          return total + itemDiscount
+        }, 0) || 0
+        
+        // Use calculated values from order items - NO FALLBACKS
+        const subtotal = calculatedSubtotal
+        const taxTotal = safeNumber(calculatedOrder.tax_total)
+        const shippingTotal = safeNumber(calculatedOrder.shipping_methods?.[0]?.total || 0)
+        const discountTotal = calculatedDiscountTotal
+        
+        // Calculate total using standard formula: subtotal + tax + shipping - discount
+        const total = subtotal + taxTotal + shippingTotal - discountTotal
+        
+        console.log('📊 Thermal printer totals from order:', {
+          subtotal,
+          taxTotal,
+          shippingTotal,
+          discountTotal,
+          total,
+          calculatedDiscountFromAdjustments: calculatedDiscountTotal
+        })
+
+        const totalsTable = [
+          [
+            { text: 'Subtotal:', fontSize: 9, alignment: 'left' },
+            { text: await this.formatAmount(subtotal, order.currency_code || 'inr'), fontSize: 9, alignment: 'right' }
+          ],
+          [
+            { text: 'Tax:', fontSize: 9, alignment: 'left' },
+            { text: await this.formatAmount(taxTotal, order.currency_code || 'inr'), fontSize: 9, alignment: 'right' }
+          ],
+          [
+            { text: 'Shipping:', fontSize: 9, alignment: 'left' },
+            { text: await this.formatAmount(shippingTotal, order.currency_code || 'inr'), fontSize: 9, alignment: 'right' }
+          ],
+          [
+            { text: 'Discount:', fontSize: 9, alignment: 'left' },
+            { text: await this.formatAmount(discountTotal, order.currency_code || 'inr'), fontSize: 9, alignment: 'right' }
+          ],
+          [
+            { text: 'Total:', fontSize: 9, bold: true, alignment: 'left' },
+            { text: await this.formatAmount(total, order.currency_code || 'inr'), fontSize: 9, bold: true, alignment: 'right' }
+          ]
+        ]
 
         const pdfContent: any = {
           pageSize: { width: 226, height: 'auto' },
@@ -532,10 +617,7 @@ class InvoiceGeneratorService extends MedusaService({
             { text: `Date: ${new Date(order.created_at).toLocaleDateString()}`, alignment: 'center', fontSize: 9, margin: [0, 0, 0, 6] },
             { table: { widths: ['*','auto','auto'], body: bodyTable }, layout: 'lightHorizontalLines', alignment: 'center' },
             { text: '\n' },
-            { columns: [
-              { width: '*', text: 'Total', bold: true, alignment: 'left' },
-              { width: 'auto', text: await this.formatAmount(computedTotal, order.currency_code || 'inr'), bold: true, alignment: 'right' }
-            ], margin: [0, 4, 0, 0] },
+            { table: { widths: ['*','auto'], body: totalsTable }, layout: 'noBorders', alignment: 'center' },
             { text: 'Thank you for your visit', alignment: 'center', fontSize: 9, margin: [0, 8, 0, 0] }
           ],
           defaultStyle: { font: 'Helvetica', fontSize: 10 }

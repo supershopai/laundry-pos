@@ -1971,6 +1971,11 @@
   dependencies:
     ioredis "^5.4.1"
 
+"@medusajs/cart@^2.10.3":
+  version "2.10.3"
+  resolved "https://registry.npmjs.org/@medusajs/cart/-/cart-2.10.3.tgz"
+  integrity sha512-Pr463FnqucJmW4mqygMTIWrvv/OcbG5Qi+usYiWlIWoFdzJXIb7XezsWizl5bOF/+rreY3/q/IBxsC8LZJtlTA==
+
 "@medusajs/cart@2.10.1":
   version "2.10.1"
   resolved "https://registry.npmjs.org/@medusajs/cart/-/cart-2.10.1.tgz"
@@ -2308,6 +2313,11 @@
     "@medusajs/utils" "2.10.1"
     ulid "^2.3.0"
 
+"@medusajs/order@^2.10.3":
+  version "2.10.3"
+  resolved "https://registry.npmjs.org/@medusajs/order/-/order-2.10.3.tgz"
+  integrity sha512-4YcZFqz+HdVNrEThdnGVuem4ca9MViEuNQJE40RRfH6k6Fw80wKE0rrJ5eWADljYIZGRLcvg2iWfBmOO6Nmcwg==
+
 "@medusajs/order@2.10.1":
   version "2.10.1"
   resolved "https://registry.npmjs.org/@medusajs/order/-/order-2.10.1.tgz"
@@ -2334,6 +2344,11 @@
   version "2.10.1"
   resolved "https://registry.npmjs.org/@medusajs/product/-/product-2.10.1.tgz"
   integrity sha512-H7diK32GcPwYayd1n3D3tNo0leCrOQ+X3/dpiz8PdfjTnj1xWoF1f7mfvhX325tLsEw4P05hBUu/i+8aQQCFSw==
+
+"@medusajs/promotion@^2.10.3":
+  version "2.10.3"
+  resolved "https://registry.npmjs.org/@medusajs/promotion/-/promotion-2.10.3.tgz"
+  integrity sha512-nYuifV1Yu4lNrJ3ZdwmSvq4E2S7b8gUyZ+FZkHFkpM7L2tv/1zfgLaZL5AR+F7r5lyJsEtpBn4TFFCG+Zbzh3Q==
 
 "@medusajs/promotion@2.10.1":
   version "2.10.1"
@@ -10129,22 +10144,7 @@ picocolors@^1.1.0, picocolors@^1.1.1:
   resolved "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz"
   integrity sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==
 
-picomatch@^2.0.4:
-  version "2.3.1"
-  resolved "https://registry.npmjs.org/picomatch/-/picomatch-2.3.1.tgz"
-  integrity sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==
-
-picomatch@^2.2.1:
-  version "2.3.1"
-  resolved "https://registry.npmjs.org/picomatch/-/picomatch-2.3.1.tgz"
-  integrity sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==
-
-picomatch@^2.2.3:
-  version "2.3.1"
-  resolved "https://registry.npmjs.org/picomatch/-/picomatch-2.3.1.tgz"
-  integrity sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==
-
-picomatch@^2.3.1:
+picomatch@^2.0.4, picomatch@^2.2.1, picomatch@^2.2.3, picomatch@^2.3.1:
   version "2.3.1"
   resolved "https://registry.npmjs.org/picomatch/-/picomatch-2.3.1.tgz"
   integrity sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==

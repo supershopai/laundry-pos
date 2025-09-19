@@ -50,7 +50,7 @@ export const generateThermalOrderPdfStep = createStep(
   "generate-thermal-order-pdf",
   async (input: GenerateThermalOrderPdfStepInput, { container }) => {
     const svc = container.resolve(INVOICE_MODULE)
-    const pdf = await svc.generateThermalOrderPdf({ order: input.order, items: input.items })
+    const pdf = await svc.generateThermalOrderPdf({ order: input.order, items: input.items }, container)
     return new StepResponse({ pdf_buffer: pdf })
   }
 )

@@ -3,27 +3,27 @@ import { useState, useEffect } from "react"
 import { Products } from "./components/Products"
 import { Cart } from "./components/Cart"
 
-interface Price {
+export interface Price {
   id: string
   currency_code: string
   amount: number
 }
 
-interface ProductVariant {
+export interface ProductVariant {
   id: string
   title: string
   sku?: string
   prices: Price[]
 }
 
-interface ProductCategory {
+export interface ProductCategory {
   id: string
   name: string
   handle?: string
   description?: string
 }
 
-interface Product {
+export interface Product {
   id: string
   title: string
   description?: string
@@ -34,7 +34,7 @@ interface Product {
   variants: ProductVariant[]
 }
 
-interface Customer {
+export interface Customer {
   id: string
   email: string
   first_name?: string
@@ -42,7 +42,7 @@ interface Customer {
   phone?: string
 }
 
-interface CartItem {
+export interface CartItem {
   product_id: string
   variant_id: string
   quantity: number
@@ -53,14 +53,14 @@ interface CartItem {
   sku?: string
 }
 
-interface Cart {
+export interface Cart {
   id: string
   items: CartItem[]
   customer_id?: string
   discount_code?: string
-  discount_amount: number
+  discount_total: number
   subtotal: number
-  tax_amount: number
+  tax_total: number
   total: number
   currency_code?: string
 }
@@ -467,7 +467,7 @@ const POSPage = () => {
         // Success: Update cart and show success message
         console.log('🎫 Frontend: Received discount response:', {
           subtotal: data.cart?.subtotal,
-          discount_amount: data.cart?.discount_amount,
+          discount_total: data.cart?.discount_total,
           tax_amount: data.cart?.tax_amount,
           total: data.cart?.total
         })

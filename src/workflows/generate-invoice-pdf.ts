@@ -97,7 +97,18 @@ export const generateThermalOrderPdfWorkflow = createWorkflow(
   (input: WorkflowInput) => {
     const { data: orders } = useQueryGraphStep({
       entity: "order",
-      fields: ["*", "items.*", "items.variant.*", "items.variant.product.*"],
+      fields: [
+        "*", 
+        "items.*", 
+        "items.variant.*", 
+        "items.variant.product.*",
+        "items.adjustments.*",
+        "subtotal",
+        "discount_total", 
+        "tax_total",
+        "total",
+        "shipping_methods.*"
+      ],
       filters: { id: input.order_id },
       options: { throwIfKeyNotFound: true },
     })

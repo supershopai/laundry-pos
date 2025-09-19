@@ -21,11 +21,24 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/invoice-generator",
     },
+    {
+      resolve: "@medusajs/promotion",
+      key: "promotion"
+    },
+    {
+      resolve: "@medusajs/cart",
+      key: "cart"
+    },
+    {
+      resolve: "@medusajs/order",
+      key: "order"
+    },
   ],
   plugins: [
-    {
-      resolve: "@rsc-labs/medusa-store-analytics-v2",
-      options: {}
-    }
+    // Temporarily disabled to test promotions tab
+    // {
+    //   resolve: "@rsc-labs/medusa-store-analytics-v2",
+    //   options: {}
+    // }
 ]
 })

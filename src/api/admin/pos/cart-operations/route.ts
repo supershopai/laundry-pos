@@ -1,169 +1,65 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 
-// Helper function to calculate cart totals including discount adjustments
-async function calculateCartTotalsWithDiscounts(cart: any, req?: any) {
-  console.log('🧮 calculateCartTotalsWithDiscounts: Input cart:', { 
-    id: cart.id, 
-    items_count: cart.items?.length || 0,
-    adjustments_count: cart.adjustments?.length || 0
-  })
+// Helper function to calculate cart totals
+function calculateCartTotals(cart: any) {
+  console.log('🧮 Calculating cart totals for cart:', cart.id)
+  console.log('📦 Cart items:', cart.items?.map((item: any) => ({
+    id: item.id,
+    title: item.title,
+    unit_price: item.unit_price,
+    quantity: item.quantity,
+    adjustments: item.adjustments
+  })))
   
-  if (!cart.items || cart.items.length === 0) {
-    console.log('🧮 calculateCartTotalsWithDiscounts: No items found, returning zero totals')
-    return {
-      ...cart,
-      subtotal: 0,
-      tax_amount: 0,
-      discount_amount: 0,
-      total: 0,
-      currency_code: cart.currency_code || 'inr'
-    }
-  }
-
-  // Calculate subtotal from items
-  const subtotal = cart.items.reduce((sum: number, item: any) => {
-    const itemTotal = item.unit_price * item.quantity
-    return sum + itemTotal
-  }, 0)
-
-  // Calculate discount amount from adjustments or manual discount
-  let discount_amount = 0
-  
-  // First check if discount is manually set (fallback approach)
-  if (cart.discount_amount !== undefined && cart.discount_amount > 0) {
-    discount_amount = cart.discount_amount
-    console.log('🧮 Using manual discount amount:', discount_amount)
-  } else if (cart.adjustments && cart.adjustments.length > 0) {
-    // Use adjustments from Medusa promotion system
-    discount_amount = cart.adjustments.reduce((sum: number, adjustment: any) => {
-      if (adjustment.type === 'promotion' || adjustment.type === 'discount') {
-        return sum + Math.abs(adjustment.amount) // Discount amounts are typically negative
-      }
-      return sum
+  if (cart.items && cart.items.length > 0) {
+    const calculatedSubtotal = cart.items.reduce((sum: number, item: any) => {
+      return sum + (item.unit_price * item.quantity)
     }, 0)
-    console.log('🧮 Using adjustments discount amount:', discount_amount)
-  }
 
-  // Ensure discount doesn't exceed subtotal (safety check)
-  if (discount_amount > subtotal) {
-    console.log(`🧮 Safety check: Discount ${discount_amount} exceeds subtotal ${subtotal}, capping to subtotal`)
-    discount_amount = subtotal
-  }
+    cart.subtotal = calculatedSubtotal
+    console.log('💰 Calculated subtotal:', calculatedSubtotal)
 
-  // Apply tax calculation on discounted amount (ensure it doesn't go negative)
-  const discountedSubtotal = Math.max(0, subtotal - discount_amount)
-  let tax_amount = 0
+    // Calculate discount total from adjustments
+    const discountTotal = cart.items.reduce((sum: number, item: any) => {
+      const itemDiscount = item.adjustments?.reduce((adjSum: number, adj: any) => {
+        let amount = adj.amount || 0
+        // Handle BigNumber amounts
+        if (amount && typeof amount === 'object' && amount.numeric_) {
+          amount = amount.numeric_
+        } else if (amount && typeof amount === 'object' && amount.toNumber) {
+          amount = amount.toNumber()
+        }
+        console.log('🔍 Adjustment amount:', { original: adj.amount, processed: amount })
+        return adjSum + amount
+      }, 0) || 0
+      console.log('📊 Item discount total:', itemDiscount)
+      return sum + itemDiscount
+    }, 0)
 
-  try {
-    if (req && cart.region_id) {
-      const regionModuleService = req.scope.resolve(Modules.REGION)
-      const region = await regionModuleService.retrieveRegion(cart.region_id)
-      
-      if (region && region.tax_rate !== undefined && region.tax_rate > 0) {
-        tax_amount = Math.round(discountedSubtotal * (region.tax_rate / 100))
-        console.log(`🧮 calculateCartTotalsWithDiscounts: Using region tax rate: ${region.tax_rate}% on discounted amount`)
-      } else {
-        tax_amount = 0
-        console.log(`🧮 calculateCartTotalsWithDiscounts: No tax configured, using 0%`)
-      }
-    } else {
-      tax_amount = 0
-      console.log(`🧮 calculateCartTotalsWithDiscounts: No request context, using 0% tax`)
+    console.log('💰 Total discount calculated:', discountTotal)
+    cart.discount_total = Math.abs(discountTotal) // Make positive
+    cart.tax_total = 0 // No tax for now
+    cart.total = calculatedSubtotal - Math.abs(discountTotal)
+
+    // Ensure total is not negative
+    if (cart.total < 0) {
+      cart.total = 0
     }
-  } catch (error) {
-    console.warn('🧮 Tax calculation failed, using zero tax:', error)
-    tax_amount = 0
+    
+    console.log('📊 Final calculated totals:', {
+      subtotal: cart.subtotal,
+      discount_total: cart.discount_total,
+      tax_total: cart.tax_total,
+      total: cart.total
+    })
+  } else {
+    cart.subtotal = 0
+    cart.discount_total = 0
+    cart.tax_total = 0
+    cart.total = 0
   }
-
-  const total = discountedSubtotal + tax_amount
-
-  console.log(`🧮 calculateCartTotalsWithDiscounts: Final totals - subtotal: ${subtotal}, discount: ${discount_amount}, discounted_subtotal: ${discountedSubtotal}, tax: ${tax_amount}, total: ${total}`)
-
-  return {
-    ...cart,
-    subtotal,
-    discount_amount,
-    tax_amount,
-    total,
-    currency_code: cart.currency_code || 'inr'
-  }
-}
-
-// Helper function to calculate cart totals using Medusa's tax system
-async function calculateCartTotals(cart: any, req?: any) {
-  console.log('🧮 calculateCartTotals: Input cart:', { 
-    id: cart.id, 
-    items_count: cart.items?.length || 0,
-    items: cart.items?.map((item: any) => ({ 
-      id: item.id, 
-      unit_price: item.unit_price, 
-      quantity: item.quantity,
-      title: item.title
-    })) || []
-  })
-  
-  if (!cart.items || cart.items.length === 0) {
-    console.log('🧮 calculateCartTotals: No items found, returning zero totals')
-    return {
-      ...cart,
-      subtotal: 0,
-      tax_amount: 0,
-      total: 0,
-      currency_code: cart.currency_code || 'inr'
-    }
-  }
-
-  // Calculate subtotal from items
-  const subtotal = cart.items.reduce((sum: number, item: any) => {
-    const itemTotal = item.unit_price * item.quantity
-    console.log(`🧮 calculateCartTotals: Item ${item.title} - price: ${item.unit_price}, qty: ${item.quantity}, total: ${itemTotal}`)
-    return sum + itemTotal
-  }, 0)
-
-  // Try to get tax calculation from Medusa tax system
-  let tax_amount = 0
-  let total = subtotal
-
-  try {
-    if (req && cart.region_id) {
-      // Use Medusa's tax calculation if available
-      const taxModuleService = req.scope.resolve(Modules.TAX)
-      const regionModuleService = req.scope.resolve(Modules.REGION)
-      
-      // Get region to check tax settings
-      const region = await regionModuleService.retrieveRegion(cart.region_id)
-      
-      if (region && region.tax_rate !== undefined && region.tax_rate > 0) {
-        // Use region's tax rate
-        tax_amount = Math.round(subtotal * (region.tax_rate / 100))
-        console.log(`🧮 calculateCartTotals: Using region tax rate: ${region.tax_rate}%`)
-      } else {
-        // No tax configured, set to zero
-        tax_amount = 0
-        console.log(`🧮 calculateCartTotals: No tax configured, using 0%`)
-      }
-    } else {
-      // No request context available, default to no tax
-      tax_amount = 0
-      console.log(`🧮 calculateCartTotals: No request context, using 0% tax`)
-    }
-  } catch (error) {
-    console.warn('🧮 Tax calculation failed, using zero tax:', error)
-    tax_amount = 0
-  }
-
-  total = subtotal + tax_amount
-
-  console.log(`🧮 calculateCartTotals: Final totals - subtotal: ${subtotal}, tax: ${tax_amount}, total: ${total}`)
-
-  return {
-    ...cart,
-    subtotal,
-    tax_amount,
-    total,
-    currency_code: cart.currency_code || 'inr'
-  }
+  return cart
 }
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
@@ -179,143 +75,126 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
     // Get Cart Module Service
     const cartModuleService = req.scope.resolve(Modules.CART)
-    const regionModuleService = req.scope.resolve(Modules.REGION)
 
     switch (operation) {
       case 'create_cart':
         console.log('🛒 Backend: Creating new cart using Cart Module...')
         
-        // Get default region
-        let regionId = "reg_01K4RDS0MYJ783R1A0SVAY914T" // fallback
         try {
+          // Get default region ID
+          const regionModuleService = req.scope.resolve(Modules.REGION)
           const regions = await regionModuleService.listRegions()
-          if (regions && regions.length > 0) {
-            regionId = regions[0].id
-          }
+          const regionId = regions && regions.length > 0 ? regions[0].id : "reg_01K4RDS0MYJ783R1A0SVAY914T"
+          
+          const cart = await cartModuleService.createCarts({
+            currency_code: "inr",
+            region_id: regionId,
+            email: "pos-customer@example.com"
+          })
+          
+          console.log('✅ Backend: Cart created successfully:', cart.id)
+          return res.json({ cart })
         } catch (error) {
-          console.warn('Failed to get regions, using fallback:', error)
+          console.error('❌ Backend: Cart creation failed:', error)
+          return res.status(400).json({ error: error.message })
         }
-        
-        const cart = await cartModuleService.createCarts({
-          currency_code: "inr",
-          region_id: regionId,
-          email: "pos-customer@example.com"
-        })
-        
-        console.log('✅ Backend: Cart created successfully:', cart.id)
-        return res.json({ cart })
 
       case 'add_item':
         console.log('🛒 Processing add_item operation with Cart Module')
         const { variant_id, quantity, unit_price, title, product_id, variant_title, sku } = data
         console.log('Item details:', { variant_id, quantity, unit_price, title, product_id })
         
-        // First, get current cart to check for existing items
-        const currentCart = await cartModuleService.retrieveCart(cart_id, {
-          relations: ['items']
-        })
-        
-        // Check if this variant already exists in the cart
-        const existingItem = currentCart.items?.find(item => item.variant_id === variant_id)
-        
-        if (existingItem) {
-          console.log(`🔄 Item already exists, updating quantity from ${existingItem.quantity} to ${existingItem.quantity + (quantity || 1)}`)
-          
-          // Update existing item quantity
-          await cartModuleService.updateLineItems(existingItem.id, {
-            quantity: existingItem.quantity + (quantity || 1)
-          })
-        } else {
-          console.log('➕ Adding new item to cart')
-          
-          // Add new line item to cart
-          await cartModuleService.addLineItems({
-            cart_id,
+        try {
+          const lineItem = await cartModuleService.addLineItems({
+            cart_id: cart_id,
             title: title || 'Product',
-          quantity: quantity || 1,
+            quantity: quantity || 1,
             unit_price: unit_price || 0,
-            variant_id: variant_id,
-            product_id: product_id
+            variant_id: variant_id
           })
+          
+          // Get updated cart with items and adjustments
+          const updatedCart = await cartModuleService.retrieveCart(cart_id, {
+            relations: ['items', 'items.adjustments']
+          })
+          
+          // Calculate totals
+          calculateCartTotals(updatedCart)
+          
+          console.log('✅ Item processed successfully')
+          return res.json({ cart: updatedCart })
+        } catch (error) {
+          console.error('❌ Add item failed:', error)
+          return res.status(400).json({ error: error.message })
         }
-        
-        // Get updated cart
-        const updatedCart = await cartModuleService.retrieveCart(cart_id, {
-          relations: ['items']
-        })
-        
-        // Calculate totals for the cart
-        console.log('🧮 Backend: Cart before totals calculation:', JSON.stringify(updatedCart, null, 2))
-        const cartWithTotalsAddItem = await calculateCartTotals(updatedCart, req)
-        console.log('🧮 Backend: Cart after totals calculation:', JSON.stringify(cartWithTotalsAddItem, null, 2))
-        
-        console.log('✅ Item processed successfully')
-        return res.json({ cart: cartWithTotalsAddItem })
 
       case 'update_quantity':
         const { variant_id: updateVariantId, quantity: newQuantity } = data
         
-        // Update line item quantity
-        const cartItems = await cartModuleService.listLineItems({ cart_id })
-        const lineItem = cartItems.find(item => item.variant_id === updateVariantId)
-        
-        if (lineItem) {
-          await cartModuleService.updateLineItems(lineItem.id, {
+        try {
+          await cartModuleService.updateLineItems([{
+            id: updateVariantId,
             quantity: newQuantity
+          }])
+          
+          // Get updated cart with items and adjustments
+          const cartAfterUpdate = await cartModuleService.retrieveCart(cart_id, {
+            relations: ['items', 'items.adjustments']
           })
+          
+          // Calculate totals
+          calculateCartTotals(cartAfterUpdate)
+          
+          return res.json({ cart: cartAfterUpdate })
+        } catch (error) {
+          console.error('❌ Update quantity failed:', error)
+          return res.status(400).json({ error: error.message })
         }
-        
-        const cartAfterUpdate = await cartModuleService.retrieveCart(cart_id, {
-          relations: ['items']
-        })
-        
-        const cartWithTotalsUpdate = await calculateCartTotals(cartAfterUpdate, req)
-        return res.json({ cart: cartWithTotalsUpdate })
 
       case 'remove_item':
         const { variant_id: removeVariantId } = data
         
-        // Remove line item from cart
-        const itemsToRemove = await cartModuleService.listLineItems({ cart_id })
-        const itemToRemove = itemsToRemove.find(item => item.variant_id === removeVariantId)
-        
-        if (itemToRemove) {
-          await cartModuleService.deleteLineItems([itemToRemove.id])
+        try {
+          await cartModuleService.updateLineItems([{
+            id: removeVariantId,
+            quantity: 0
+          }])
+          
+          // Get updated cart with items and adjustments
+          const cartAfterRemoval = await cartModuleService.retrieveCart(cart_id, {
+            relations: ['items', 'items.adjustments']
+          })
+          
+          // Calculate totals
+          calculateCartTotals(cartAfterRemoval)
+          
+          return res.json({ cart: cartAfterRemoval })
+        } catch (error) {
+          console.error('❌ Remove item failed:', error)
+          return res.status(400).json({ error: error.message })
         }
-        
-        const cartAfterRemoval = await cartModuleService.retrieveCart(cart_id, {
-          relations: ['items']
-        })
-        
-        const cartWithTotalsRemove = await calculateCartTotals(cartAfterRemoval, req)
-        return res.json({ cart: cartWithTotalsRemove })
 
       case 'set_customer':
         const { customer_id } = data
         
-        await cartModuleService.updateCarts(cart_id, {
-          customer_id: customer_id
-        })
-        
-        const cartWithCustomer = await cartModuleService.retrieveCart(cart_id, {
-          relations: ['items']
-        })
-        
-        // Check for existing discount in metadata and preserve it
-        const cartWithExtendedPropsCustomer = cartWithCustomer as any
-        const hasDiscount = cartWithCustomer.metadata?.discount_amount || cartWithExtendedPropsCustomer.discount_amount
-        
-        let cartWithCustomerTotals: any
-        if (hasDiscount > 0) {
-          console.log('🎫 Preserving existing discount when setting customer')
-          // Use existing discount calculation
-          cartWithCustomerTotals = await calculateCartTotalsWithDiscounts(cartWithCustomer, req)
-        } else {
-          // No discount, use regular calculation
-          cartWithCustomerTotals = await calculateCartTotals(cartWithCustomer, req)
+        try {
+          await cartModuleService.updateCarts(cart_id, {
+            customer_id: customer_id
+          })
+          
+          // Get updated cart with items and adjustments
+          const cartWithCustomer = await cartModuleService.retrieveCart(cart_id, {
+            relations: ['items', 'items.adjustments']
+          })
+          
+          // Calculate totals
+          calculateCartTotals(cartWithCustomer)
+          
+          return res.json({ cart: cartWithCustomer })
+        } catch (error) {
+          console.error('❌ Set customer failed:', error)
+          return res.status(400).json({ error: error.message })
         }
-        
-        return res.json({ cart: cartWithCustomerTotals })
 
       case 'apply_discount':
         console.log('🎫 Processing apply_discount operation with Medusa Promotion Module')
@@ -323,434 +202,483 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         console.log('Discount code to apply:', discount_code)
         
         try {
-          // Get promotion module service
+          // Get Promotion Module Service
           const promotionModuleService = req.scope.resolve(Modules.PROMOTION)
           
-          // Validate discount code
-          console.log('🎫 Searching for promotion with code:', discount_code)
+          // Find promotion by code
           const promotions = await promotionModuleService.listPromotions({
             code: discount_code,
-            is_automatic: false // Only manual promotion codes
+            status: ['active']
           })
-          
-          console.log('🎫 Found promotions:', promotions?.length || 0)
-          if (promotions && promotions.length > 0) {
-            console.log('🎫 First promotion details:', JSON.stringify(promotions[0], null, 2))
-          }
           
           if (!promotions || promotions.length === 0) {
             return res.status(400).json({ 
-              error: 'Invalid discount code',
+              error: 'Promotion not found',
               success: false,
-              message: 'The discount code you entered is not valid or has expired.'
+              message: 'Invalid or inactive promotion code'
             })
           }
           
           const promotion = promotions[0]
-          console.log('Found promotion:', promotion.id, promotion.code)
-          console.log('Promotion details:', {
-            id: promotion.id,
-            code: promotion.code,
-            type: promotion.type,
-            application_method: promotion.application_method
+          console.log('✅ Promotion found:', promotion.id)
+          
+          // Get current cart with relations
+          const currentCart = await cartModuleService.retrieveCart(cart_id, {
+            relations: ['items', 'items.adjustments']
           })
           
-          // Check if promotion is active
-          const now = new Date()
-          if (promotion.campaign?.ends_at && new Date(promotion.campaign.ends_at) < now) {
+          // Prepare cart data for computeActions
+          const cartData = {
+            items: (currentCart.items || []).map((item: any) => ({
+              id: item.id,
+              title: item.title,
+              unit_price: item.unit_price,
+              quantity: item.quantity,
+              variant_id: item.variant_id,
+              product_id: item.product_id,
+              adjustments: item.adjustments || [],
+              subtotal: item.subtotal || (item.unit_price * item.quantity),
+              total: item.total || (item.unit_price * item.quantity),
+              original_total: item.unit_price * item.quantity,
+              is_discountable: true
+            })),
+            shipping_methods: (currentCart.shipping_methods || []).map((method: any) => ({
+              id: method.id,
+              amount: method.amount,
+              subtotal: method.amount,
+              original_total: method.amount,
+              adjustments: (method.adjustments || []).map((adj: any) => ({
+                id: adj.id,
+                amount: adj.amount,
+                code: adj.code || '',
+                is_tax_inclusive: adj.is_tax_inclusive || false
+              }))
+            })),
+            subtotal: currentCart.subtotal || 0,
+            total: currentCart.total || 0,
+            currency_code: currentCart.currency_code || 'inr',
+            region_id: currentCart.region_id,
+            customer_id: currentCart.customer_id
+          }
+          
+          console.log('📦 Cart data for computeActions:', JSON.stringify(cartData, null, 2))
+          
+          // Use Medusa's computeActions method
+          const actions = await promotionModuleService.computeActions([promotion.code!], cartData)
+          console.log('🎯 Computed actions:', actions)
+          
+          if (!actions || actions.length === 0) {
             return res.status(400).json({ 
-              error: 'Expired discount code',
+              error: 'Promotion not applicable',
               success: false,
-              message: 'This discount code has expired.'
+              message: 'This promotion cannot be applied to this cart'
             })
           }
           
-          if (promotion.campaign?.starts_at && new Date(promotion.campaign.starts_at) > now) {
-            return res.status(400).json({ 
-              error: 'Discount not yet active',
-              success: false,
-              message: 'This discount code is not yet active.'
-            })
+          // Execute the computed actions
+          for (const action of actions) {
+            if (action.action === 'addItemAdjustment') {
+              await cartModuleService.addLineItemAdjustments([{
+                item_id: action.item_id,
+                amount: action.amount,
+                code: action.code,
+                is_tax_inclusive: action.is_tax_inclusive || false
+              }])
+              console.log('✅ Item adjustment added:', action.item_id)
+            }
           }
           
-          // Apply discount to cart - since promotion validation passed, we need to get full promotion details
-          try {
-            console.log('🎫 Getting full promotion details including application method...')
-            
-            // Get full application method details
-            if (!promotion.application_method?.id) {
-              return res.status(400).json({ 
-                error: 'Invalid promotion configuration',
-                success: false,
-                message: 'This promotion does not have a valid application method configured.'
-              })
-            }
-            
-            // Get full application method details using the working approach
-            const fullApplicationMethod = await (promotionModuleService as any).retrieveApplicationMethod(
-              promotion.application_method.id
-            )
-            
-            console.log('🎫 Full application method:', JSON.stringify(fullApplicationMethod, null, 2))
-            
-            // Get current cart for calculation
-            const currentCart = await cartModuleService.retrieveCart(cart_id, {
-              relations: ['items']
-            })
-            
-            // Calculate discount based on application method
-            let discountAmount = 0
-            if (fullApplicationMethod && currentCart.items && currentCart.items.length > 0) {
-              const subtotal = currentCart.items.reduce((sum: number, item: any) => {
-                return sum + (item.unit_price * item.quantity)
-              }, 0)
-              
-              console.log(`🎫 Cart subtotal: ${subtotal}`)
-              console.log(`🎫 Application method type: ${fullApplicationMethod.type}`)
-              console.log(`🎫 Application method value: ${fullApplicationMethod.value}`)
-              
-              if (fullApplicationMethod.type === 'percentage') {
-                discountAmount = Math.round(subtotal * (fullApplicationMethod.value / 100))
-                console.log(`🎫 Calculated percentage discount: ${fullApplicationMethod.value}% of ${subtotal} = ${discountAmount}`)
-              } else if (fullApplicationMethod.type === 'fixed') {
-                discountAmount = fullApplicationMethod.value
-                console.log(`🎫 Applied fixed discount: ${discountAmount}`)
-              }
-              
-              // Ensure discount doesn't exceed subtotal (prevent negative totals)
-              if (discountAmount > subtotal) {
-                console.log(`🎫 Discount ${discountAmount} exceeds subtotal ${subtotal}, capping to subtotal`)
-                discountAmount = subtotal
-              }
-              
-              console.log(`🎫 Final discount amount after validation: ${discountAmount}`)
-            }
-            
-            if (discountAmount > 0) {
-              // Update the cart in the database with discount information
-              await cartModuleService.updateCarts(cart_id, {
-                metadata: {
-                  discount_amount: discountAmount,
-                  applied_promotions: [{ id: promotion.id, code: promotion.code }],
-                  discount_code: promotion.code
-                }
-              })
-              
-              // Retrieve the updated cart
-              const updatedCart = await cartModuleService.retrieveCart(cart_id, {
-                relations: ['items']
-              })
-              
-              // Create cart object with discount for calculation
-              const cartWithDiscount = {
-                ...updatedCart,
-                discount_amount: discountAmount,
-                applied_promotions: [{ id: promotion.id, code: promotion.code }]
-              }
-              
-              // Calculate final totals
-              const cartWithTotals = await calculateCartTotalsWithDiscounts(cartWithDiscount, req)
-              
-              console.log('✅ Discount calculated and applied successfully')
-              console.log('🎫 Final cart totals:', {
-                subtotal: cartWithTotals.subtotal,
-                discount_amount: cartWithTotals.discount_amount,
-                tax_amount: cartWithTotals.tax_amount,
-                total: cartWithTotals.total
-              })
-              
-              return res.json({ 
-                cart: cartWithTotals,
-                success: true,
-                message: `Discount "${promotion.code}" applied successfully! ${fullApplicationMethod.type === 'percentage' ? `${fullApplicationMethod.value}%` : `₹${fullApplicationMethod.value}`} off`
-              })
-            } else {
-              return res.status(400).json({ 
-                error: 'Invalid promotion configuration',
-                success: false,
-                message: 'This promotion is not properly configured or cannot be applied to your cart.'
-              })
-            }
-            
-          } catch (applyError) {
-            console.error('Failed to apply discount:', applyError)
-            return res.status(400).json({ 
-              error: 'Failed to apply discount',
-              success: false,
-              message: 'Unable to apply this discount to your cart. Please check the terms and conditions.'
-            })
-          }
+          // Get updated cart with totals
+          const updatedCart = await cartModuleService.retrieveCart(cart_id, {
+            relations: ['items', 'items.adjustments']
+          })
+          
+          // Calculate totals
+          calculateCartTotals(updatedCart)
+          
+          console.log('✅ Promotion applied successfully')
+          console.log('📊 Final cart totals:', {
+            subtotal: updatedCart.subtotal,
+            discount_total: updatedCart.discount_total,
+            total: updatedCart.total
+          })
+          
+          return res.json({ 
+            cart: updatedCart,
+            success: true,
+            message: 'Promotion applied successfully!'
+          })
           
         } catch (error) {
-          console.error('Discount operation error:', error)
+          console.error('❌ Promotion application failed:', error)
           return res.status(400).json({ 
-            error: 'Discount service error',
+            error: 'Promotion application failed',
             success: false,
-            message: 'There was an error processing your discount code. Please try again.'
+            message: error.message || 'There was an error processing your discount code. Please try again.'
           })
         }
 
       case 'remove_discount':
-        console.log('🎫 Processing remove_discount operation')
+        console.log('🎫 Processing remove_discount operation with Medusa Promotion Module')
         
         try {
-          // Clear discount information from cart metadata
-          await cartModuleService.updateCarts(cart_id, {
-            metadata: {
-              discount_amount: null,
-              applied_promotions: null,
-              discount_code: null
+          // Get current cart with relations
+          const currentCart = await cartModuleService.retrieveCart(cart_id, {
+            relations: ['items', 'items.adjustments']
+          })
+          
+          // Remove all line item adjustments
+          if (currentCart.items && currentCart.items.length > 0) {
+            for (const item of currentCart.items) {
+              if (item.adjustments && item.adjustments.length > 0) {
+                // Remove all adjustments for this item
+                await cartModuleService.setLineItemAdjustments(item.id, [])
+                console.log('✅ Removed adjustments for item:', item.id)
+              }
             }
+          }
+          
+          // Get updated cart with totals
+          const updatedCart = await cartModuleService.retrieveCart(cart_id, {
+            relations: ['items', 'items.adjustments']
           })
           
-          console.log('🎫 Removing discounts from cart metadata')
-          
-          // Get updated cart
-          const cartAfterDiscountRemoval = await cartModuleService.retrieveCart(cart_id, {
-            relations: ['items']
-          })
-          
-          const cartWithoutDiscountTotals = await calculateCartTotals(cartAfterDiscountRemoval, req)
+          // Calculate totals
+          calculateCartTotals(updatedCart)
           
           console.log('✅ Discount removed successfully')
-          return res.json({ 
-            cart: cartWithoutDiscountTotals,
+          console.log('📊 Final cart totals:', {
+            subtotal: updatedCart.subtotal,
+            discount_total: updatedCart.discount_total,
+            total: updatedCart.total
+          })
+          
+          return res.json({
+            cart: updatedCart,
             success: true,
-            message: 'Discount removed from cart.'
+            message: 'Discount removed successfully!'
           })
           
         } catch (error) {
-          console.error('Remove discount error:', error)
+          console.error('❌ Remove discount failed:', error)
           return res.status(400).json({ 
-            error: 'Failed to remove discount',
+            error: 'Remove discount failed',
             success: false,
-            message: 'Unable to remove discount from cart.'
+            message: error.message || 'There was an error removing the discount. Please try again.'
+          })
+        }
+
+      case 'fix_promotion':
+        console.log('🔧 Processing fix_promotion operation')
+        const { promotion_id, application_method } = data
+        
+        try {
+          // This operation is no longer supported - use official Medusa promotion management
+          return res.status(400).json({
+            error: 'Operation not supported',
+            success: false,
+            message: 'Please use the official Medusa admin to manage promotions.'
+          })
+        } catch (error) {
+          console.error('Fix promotion error:', error)
+          return res.status(400).json({ 
+            error: 'Failed to fix promotion',
+            success: false,
+            message: error.message || 'There was an error fixing the promotion. Please try again.'
           })
         }
 
       case 'complete_order':
         console.log('🛒 Processing complete_order operation with Cart Module')
+        const { payment_method } = data
         
         try {
-          // First, get the cart to ensure it has items
-          const currentCart = await cartModuleService.retrieveCart(cart_id, {
-            relations: ['items']
+          // Get current cart with calculated totals using Query service
+          const queryModule = req.scope.resolve('query') as any
+          const { data: carts } = await queryModule.graph({
+            entity: 'cart',
+            fields: [
+              'id',
+              'currency_code',
+              'email',
+              'customer_id',
+              'region_id',
+              'total',
+              'subtotal',
+              'tax_total',
+              'discount_total',
+              'discount_subtotal',
+              'discount_tax_total',
+              'original_total',
+              'original_tax_total',
+              'item_total',
+              'item_subtotal',
+              'item_tax_total',
+              'original_item_total',
+              'original_item_subtotal',
+              'original_item_tax_total',
+              'shipping_total',
+              'shipping_subtotal',
+              'shipping_tax_total',
+              'original_shipping_tax_total',
+              'original_shipping_subtotal',
+              'original_shipping_total',
+              'credit_line_subtotal',
+              'credit_line_tax_total',
+              'credit_line_total',
+              'items.*',
+              'items.adjustments.*',
+              'shipping_methods.*',
+              'customer.*',
+              'region.*'
+            ],
+            filters: {
+              id: cart_id
+            }
           })
           
-          if (!currentCart || !currentCart.items || currentCart.items.length === 0) {
-            throw new Error('Cannot complete empty cart')
+          const currentCart = carts?.[0]
+          if (!currentCart) {
+            throw new Error('Cart not found')
           }
           
-          console.log(`🛒 Completing cart ${cart_id} with ${currentCart.items.length} items`)
-          console.log(`🛒 Cart customer_id: ${currentCart.customer_id}`)
-          console.log(`🛒 Cart email: ${currentCart.email}`)
-          
-          // Try to create order using different Medusa admin API endpoints
-          let orderData: any = null
-          let orderId: string
-          
-          // Calculate cart totals first (outside try block for scope)
-          // Check for discount information in cart metadata or extended properties
-          const cartWithExtendedProps = currentCart as any
-          const discountFromMetadata = currentCart.metadata?.discount_amount
-          const discountFromProps = cartWithExtendedProps.discount_amount
-          const discountAmount = discountFromMetadata || discountFromProps || 0
-          
-          let cartTotals: any
-          if (discountAmount > 0) {
-            console.log('🛒 Cart has discount applied, using existing totals')
-            console.log('🛒 Discount amount found:', discountAmount)
-            console.log('🛒 Discount source:', discountFromMetadata ? 'metadata' : 'extended_props')
-            
-            const subtotal = currentCart.items.reduce((sum: number, item: any) => sum + (item.unit_price * item.quantity), 0)
-            cartTotals = {
-              subtotal: subtotal,
-              discount_amount: discountAmount,
-              tax_amount: 0, // Use 0 as per user preference
-              total: subtotal - discountAmount
-            }
-          } else {
-            console.log('🛒 No discount applied, calculating fresh totals')
-            cartTotals = await calculateCartTotals(currentCart, req)
+          // Convert BigNumber values to numbers for easier handling
+          const cartTotals = {
+            subtotal: currentCart.subtotal?.toNumber?.() || 0,
+            discount_total: currentCart.discount_total?.toNumber?.() || 0,
+            tax_total: currentCart.tax_total?.toNumber?.() || 0,
+            total: currentCart.total?.toNumber?.() || 0,
+            items_count: currentCart.items?.length || 0
           }
           
-          console.log('🛒 Final cart totals for order creation:', JSON.stringify(cartTotals, null, 2))
+          console.log('📊 Cart retrieved with calculated totals via Query:', cartTotals)
           
-          // Get customer email if customer_id is available (outside try block for scope)
-          let customerEmail = currentCart.email || 'pos-customer@example.com'
-          if (currentCart.customer_id) {
-            try {
-              const customerModuleService = req.scope.resolve(Modules.CUSTOMER)
-              const customer = await customerModuleService.retrieveCustomer(currentCart.customer_id)
-              if (customer && customer.email) {
-                customerEmail = customer.email
-                console.log(`🛒 Using customer email: ${customerEmail}`)
-              }
-            } catch (customerError) {
-              console.warn('Could not fetch customer details:', customerError)
-            }
+          // If Query service returns 0 totals, fall back to manual calculation
+          if (cartTotals.total === 0 && currentCart.items && currentCart.items.length > 0) {
+            console.log('⚠️ Query service returned 0 totals, falling back to manual calculation')
+            calculateCartTotals(currentCart)
+            cartTotals.subtotal = currentCart.subtotal || 0
+            cartTotals.discount_total = currentCart.discount_total || 0
+            cartTotals.tax_total = currentCart.tax_total || 0
+            cartTotals.total = currentCart.total || 0
+            console.log('📊 Manual calculation results:', cartTotals)
           }
+          
+          // Create order using Order Module
+          const orderModuleService = req.scope.resolve(Modules.ORDER)
+          
+          console.log('📊 Order creation - Cart totals from Query:', {
+            subtotal: cartTotals.subtotal,
+            discount_total: cartTotals.discount_total,
+            total: cartTotals.total,
+            items_count: cartTotals.items_count,
+            customer_email: currentCart.customer?.email || currentCart.email
+          })
 
-          // Try to create a real Medusa order using workflow approach
+          // Create order with line items from cart including adjustments
+          const orderData = {
+            currency_code: currentCart.currency_code,
+            email: currentCart.customer?.email || currentCart.email,
+            region_id: currentCart.region_id,
+            customer_id: currentCart.customer_id,
+            status: 'completed',
+            items: currentCart.items?.map((item: any) => ({
+              title: item.title,
+              variant_id: item.variant_id,
+              product_id: item.product_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price?.toNumber?.() || item.unit_price,
+              // Include adjustments for discounts
+              adjustments: item.adjustments?.map((adj: any) => ({
+                amount: adj.amount?.toNumber?.() || adj.amount,
+                code: adj.code,
+                is_tax_inclusive: adj.is_tax_inclusive || false
+              })) || []
+            })) || []
+          }
+          
+          console.log('📋 Order data:', JSON.stringify(orderData, null, 2))
+          const order = await orderModuleService.createOrders(orderData)
+          
+          console.log('✅ Order created with line items:', orderData.items.length)
+          console.log('🎫 Order line items with adjustments:', orderData.items.map(item => ({
+            title: item.title,
+            adjustments: item.adjustments
+          })))
+          
+          // Calculate discount total from item adjustments for logging
+          const orderDiscountTotal = orderData.items.reduce((total, item) => {
+            const itemDiscount = item.adjustments?.reduce((sum, adj) => {
+              let amount = adj.amount || 0
+              if (amount && typeof amount === 'object' && amount.toNumber) {
+                amount = amount.toNumber()
+              }
+              return sum + amount
+            }, 0) || 0
+            return total + itemDiscount
+          }, 0)
+          
+          console.log('💰 Calculated order discount total from adjustments:', orderDiscountTotal)
+          console.log('📊 Order created with adjustments - discount will be calculated in thermal printer')
+          
+          // Try to link the order to the cart using Medusa's Link service
           try {
-            // Get the order module service to create orders directly
-            const orderModuleService = req.scope.resolve(Modules.ORDER)
-            
-            // Create order from cart data with proper Medusa v2 structure
-            const orderInput = {
-              currency_code: currentCart.currency_code,
-              email: customerEmail,
-              region_id: currentCart.region_id,
-              customer_id: currentCart.customer_id,
-              status: 'completed',
-              items: currentCart.items.map((item: any) => ({
-                title: item.title,
-                variant_id: item.variant_id,
-                product_id: item.product_id,
-                quantity: item.quantity,
-                unit_price: item.unit_price
-              }))
-            }
-            
-            console.log('🛒 Creating order with data:', orderInput)
-            console.log('🛒 Order discount amount:', cartTotals.discount_amount || 0)
-            const order = await orderModuleService.createOrders(orderInput)
-            orderId = order.id
-            console.log('✅ Medusa order created:', orderId)
-            
-            // If there's a discount, apply it as line item adjustments
-            if (cartTotals.discount_amount > 0) {
-              console.log('🎫 Applying discount as line item adjustments to order')
-              
-              // Get the created order with items to get line item IDs
-              const createdOrder = await orderModuleService.retrieveOrder(orderId, {
-                relations: ['items']
-              })
-              
-              // Check if order has items
-              if (!createdOrder.items || createdOrder.items.length === 0) {
-                console.warn('⚠️ Created order has no items, skipping discount adjustments')
-              } else {
-                // Calculate discount per item proportionally
-                const totalItemValue = cartTotals.subtotal
-                const discountPercentage = cartTotals.discount_amount / totalItemValue
-                
-                // Create adjustments for each line item
-                const adjustments = createdOrder.items.map((item: any) => {
-                  const itemTotal = item.unit_price * item.quantity
-                  const itemDiscountAmount = Math.round(itemTotal * discountPercentage)
-                  
-                  const discountCode = currentCart.metadata?.discount_code as string || 'DISCOUNT'
-                  const promotionId = currentCart.metadata?.applied_promotions?.[0]?.id as string || undefined
-                  
-                  return {
-                    item_id: item.id,
-                    amount: itemDiscountAmount,
-                    code: discountCode,
-                    description: `Discount applied: ${discountCode}`,
-                    promotion_id: promotionId
-                  }
-                })
-                
-                console.log('🎫 Setting line item adjustments:', adjustments)
-                await orderModuleService.setOrderLineItemAdjustments(orderId, adjustments)
-                console.log('✅ Discount adjustments set on order')
-                
-                // Refresh the order to verify totals are correct
+            // Try different Link module resolution approaches
+            let linkModule
+            try {
+              linkModule = req.scope.resolve(Modules.LINK) as any
+            } catch {
+              try {
+                linkModule = req.scope.resolve('linkModule') as any
+              } catch {
                 try {
-                  const refreshedOrder = await orderModuleService.retrieveOrder(orderId, {
-                    relations: ['items', 'items.adjustments']
-                  })
-                  console.log('🔄 FINAL ORDER VERIFICATION:')
-                  console.log('   Order ID:', orderId)
-                  console.log('   Subtotal:', refreshedOrder.subtotal)
-                  console.log('   Discount Total:', refreshedOrder.discount_total)
-                  console.log('   Item Total:', refreshedOrder.item_total)
-                  console.log('   Final Total:', refreshedOrder.total)
-                  console.log('   Expected Total (78-10):', 68)
-                  console.log('   ✅ Order created successfully with correct totals!')
-                } catch (refreshError) {
-                  console.warn('⚠️ Could not refresh order totals:', refreshError)
+                  linkModule = req.scope.resolve('link_modules') as any
+                } catch {
+                  linkModule = req.scope.resolve('link') as any
                 }
               }
             }
             
-          } catch (orderError) {
-            console.log('⚠️ Order module creation failed, trying draft orders approach')
-            
-            try {
-              // Try draft orders approach
-              const draftResponse = await fetch(`${req.protocol}://${req.get('host')}/admin/draft-orders`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Cookie': req.headers.cookie || '',
-                  'Authorization': req.headers.authorization || ''
+            if (linkModule && typeof linkModule.create === 'function') {
+              // Use the official Link service to create cart-order relationship
+              await linkModule.create({
+                [Modules.CART]: {
+                  cart_id: cart_id,
                 },
-                body: JSON.stringify({
-                  email: customerEmail,
-                  region_id: currentCart.region_id,
-                  customer_id: currentCart.customer_id,
-                  items: currentCart.items.map((item: any) => ({
-                    variant_id: item.variant_id,
-                    quantity: item.quantity,
-                    unit_price: item.unit_price,
-                    total: item.unit_price * item.quantity
-                  }))
-                })
+                [Modules.ORDER]: {
+                  order_id: order.id,
+                },
               })
-              
-              if (draftResponse.ok) {
-                const draftData = await draftResponse.json()
-                orderId = draftData.draft_order?.id || `draft_${Date.now()}_${cart_id.slice(-8)}`
-                console.log('✅ Draft order created:', orderId)
-              } else {
-                throw new Error('Draft orders also failed')
-              }
-              
-            } catch (draftError) {
-              console.log('⚠️ All order creation methods failed, creating POS order record')
-              
-              // Final fallback: Create a POS order record that we can track
-              orderId = `pos_order_${Date.now()}_${cart_id.slice(-8)}`
-              console.log('✅ Created POS order record:', orderId)
+              console.log('🔗 Order linked to cart successfully')
+            } else {
+              console.log('⚠️ Link service not available, order created without linking')
             }
+          } catch (linkError) {
+            console.log('⚠️ Could not link order to cart (order still created):', linkError.message)
+            // Order is still created, just not linked
           }
           
-          // Mark the cart as completed
-          await cartModuleService.updateCarts(cart_id, {
-            completed_at: new Date().toISOString()
+          console.log('✅ Order created successfully:', order.id)
+          
+          // Get the completed order with calculated totals using Query service
+          const { data: orders } = await queryModule.graph({
+            entity: 'order',
+            fields: [
+              'id',
+              'currency_code',
+              'email',
+              'customer_id',
+              'status',
+              'total',
+              'subtotal',
+              'tax_total',
+              'discount_total',
+              'discount_subtotal',
+              'discount_tax_total',
+              'original_total',
+              'original_tax_total',
+              'item_total',
+              'item_subtotal',
+              'item_tax_total',
+              'original_item_total',
+              'original_item_subtotal',
+              'original_item_tax_total',
+              'shipping_total',
+              'shipping_subtotal',
+              'shipping_tax_total',
+              'original_shipping_tax_total',
+              'original_shipping_subtotal',
+              'original_shipping_total',
+              'items.*',
+              'shipping_methods.*',
+              'customer.*',
+              'region.*'
+            ],
+            filters: {
+              id: order.id
+            }
           })
           
-          // Create a new cart for the next transaction
-          let newRegionId = currentCart.region_id || "reg_01K4RDS0MYJ783R1A0SVAY914T"
+          const completedOrder = orders?.[0] || order
           
-          const newCart = await cartModuleService.createCarts({
-            currency_code: currentCart.currency_code || "inr",
-            region_id: newRegionId,
-            email: "pos-customer@example.com"
+          // Convert BigNumber values to numbers for order totals
+          const orderTotals = {
+            subtotal: completedOrder.subtotal?.toNumber?.() || 0,
+            discount_total: completedOrder.discount_total?.toNumber?.() || 0,
+            tax_total: completedOrder.tax_total?.toNumber?.() || 0,
+            total: completedOrder.total?.toNumber?.() || 0,
+            items_count: completedOrder.items?.length || 0
+          }
+          
+          console.log('📊 Order retrieved with calculated totals via Query:', orderTotals)
+          
+          // If Query service returns 0 totals for order, use cart totals
+          if (orderTotals.total === 0 && cartTotals.total > 0) {
+            console.log('⚠️ Order Query returned 0 totals, using cart totals')
+            orderTotals.subtotal = cartTotals.subtotal
+            orderTotals.discount_total = cartTotals.discount_total
+            orderTotals.tax_total = cartTotals.tax_total
+            orderTotals.total = cartTotals.total
+            orderTotals.items_count = cartTotals.items_count
+            console.log('📊 Using cart totals for order:', orderTotals)
+          }
+          
+          console.log('📦 Completed order details:', {
+            order_id: completedOrder.id,
+            email: completedOrder.email,
+            customer_id: completedOrder.customer_id,
+            subtotal: orderTotals.subtotal,
+            discount_total: orderTotals.discount_total,
+            total: orderTotals.total,
+            items_count: orderTotals.items_count,
+            currency_code: completedOrder.currency_code,
+            status: completedOrder.status
           })
-          
-          console.log('✅ Order completed successfully')
-          console.log('✅ New cart created:', newCart.id)
           
           return res.json({ 
             order: {
-              order_id: orderId,
-              cart: newCart
-            }
+              order_id: completedOrder.id,
+              email: completedOrder.email,
+              customer_id: completedOrder.customer_id,
+              subtotal: orderTotals.subtotal,
+              discount_total: orderTotals.discount_total,
+              total: orderTotals.total,
+              items_count: orderTotals.items_count,
+              currency_code: completedOrder.currency_code,
+              status: completedOrder.status,
+              items: completedOrder.items
+            },
+            success: true,
+            message: 'Order completed successfully!'
           })
           
         } catch (error) {
           console.error('❌ Order completion failed:', error)
-          throw error
+          return res.status(400).json({ 
+            error: 'Order completion failed',
+            success: false,
+            message: error.message || 'Failed to complete order. Please try again.'
+          })
         }
 
       case 'get_cart':
-        const existingCart = await cartModuleService.retrieveCart(cart_id, {
-          relations: ['items']
-        })
-        return res.json({ cart: existingCart })
+        try {
+          const existingCart = await cartModuleService.retrieveCart(cart_id, {
+            relations: ['items', 'items.adjustments']
+          })
+          
+          // Calculate totals
+          calculateCartTotals(existingCart)
+          
+          return res.json({ cart: existingCart })
+        } catch (error) {
+          console.error('❌ Get cart failed:', error)
+          return res.status(400).json({ 
+            error: 'Failed to get cart',
+            success: false,
+            message: error.message || 'Failed to retrieve cart.'
+          })
+        }
 
       default:
         return res.status(400).json({ error: `Unknown operation: ${operation}` })
@@ -770,13 +698,25 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     
     if (cart_id) {
       const cart = await cartModuleService.retrieveCart(cart_id as string, {
-        relations: ['items']
+        relations: ['items', 'items.adjustments']
       })
-      const cartWithCalculatedTotals = await calculateCartTotals(cart, req)
-      return res.json({ cart: cartWithCalculatedTotals })
+      
+      if (!cart) {
+        return res.status(404).json({ error: "Cart not found" })
+      }
+      
+      // Calculate totals
+      calculateCartTotals(cart)
+      
+      return res.json({ cart })
     } else {
       // Get all active carts (if needed for admin)
-      return res.json({ message: "Please provide cart_id parameter" })
+      const activeCarts = await cartModuleService.listCarts()
+      
+      // Calculate totals for each cart
+      activeCarts.forEach(calculateCartTotals)
+      
+      return res.json({ carts: activeCarts })
     }
   } catch (error) {
     console.error('Get cart error:', error)

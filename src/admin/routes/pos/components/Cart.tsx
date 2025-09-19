@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Cart as CartInterface, Customer, ProductVariant } from '../page'
+import { Cart as CartInterface, Customer } from '../page'
 
 interface CartProps {
   cart: CartInterface | null
@@ -51,26 +51,16 @@ export const Cart: React.FC<CartProps> = ({
     phone: ''
   })
   const [isCustomerValidationOpen, setIsCustomerValidationOpen] = useState(false)
-  const [pendingPaymentMethod, setPendingPaymentMethod] = useState<string | null>(null)
 
   // Handle payment click with customer validation
   const handlePaymentClick = (paymentMethod: string) => {
     if (!selectedCustomer) {
-      setPendingPaymentMethod(paymentMethod)
       setIsCustomerValidationOpen(true)
     } else {
       onCompleteOrder(paymentMethod)
     }
   }
 
-  // Handle customer validation confirm
-  const handleCustomerValidationConfirm = () => {
-    if (selectedCustomer && pendingPaymentMethod) {
-      setIsCustomerValidationOpen(false)
-      setPendingPaymentMethod(null)
-      onCompleteOrder(pendingPaymentMethod)
-    }
-  }
 
   // Auto-scroll to bottom when cart items change
   useEffect(() => {
@@ -324,7 +314,7 @@ export const Cart: React.FC<CartProps> = ({
           </div>
         ) : (
           <div>
-            {cart.items?.map((item, index) => (
+            {cart.items?.map((item: any, index: number) => (
               <div
                 key={`${item.variant_id}-${index}`}
                 style={{
@@ -536,22 +526,22 @@ export const Cart: React.FC<CartProps> = ({
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="text"
-                placeholder={cart && cart.discount_amount > 0 ? "Discount applied" : "Discount code"}
+                placeholder={cart && cart.discount_total > 0 ? "Discount applied" : "Discount code"}
                 value={discountCode}
                 onChange={(e) => onDiscountCodeChange(e.target.value)}
-                disabled={cart && cart.discount_amount > 0}
+                disabled={cart && cart.discount_total > 0}
                 style={{
                   flex: 1,
                   padding: '8px 12px',
                   border: '1px solid var(--ui-border-base)',
                   borderRadius: '4px',
                   fontSize: '14px',
-                  backgroundColor: cart && cart.discount_amount > 0 ? 'var(--ui-bg-disabled)' : 'var(--ui-bg-field)',
-                  color: cart && cart.discount_amount > 0 ? 'var(--ui-fg-muted)' : 'var(--ui-fg-base)',
-                  cursor: cart && cart.discount_amount > 0 ? 'not-allowed' : 'text'
+                  backgroundColor: cart && cart.discount_total > 0 ? 'var(--ui-bg-disabled)' : 'var(--ui-bg-field)',
+                  color: cart && cart.discount_total > 0 ? 'var(--ui-fg-muted)' : 'var(--ui-fg-base)',
+                  cursor: cart && cart.discount_total > 0 ? 'not-allowed' : 'text'
                 }}
               />
-              {cart && cart.discount_amount > 0 ? (
+              {cart && cart.discount_total > 0 ? (
                 <button
                   onClick={onRemoveDiscount}
                   style={{
@@ -607,7 +597,7 @@ export const Cart: React.FC<CartProps> = ({
                 <span>Subtotal:</span>
                 <span>{formatPrice(cart?.subtotal || 0, cart?.currency_code || cart?.items?.[0]?.currency_code || 'INR')}</span>
               </div>
-              {cart && cart.discount_amount > 0 && (
+              {cart && cart.discount_total > 0 && (
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -617,7 +607,7 @@ export const Cart: React.FC<CartProps> = ({
                   color: 'var(--ui-fg-success)'
                 }}>
                   <span>Discount:</span>
-                  <span>-{formatPrice(cart.discount_amount, cart?.currency_code || cart?.items?.[0]?.currency_code || 'INR')}</span>
+                  <span>-{formatPrice(cart.discount_total || 0, cart?.currency_code || cart?.items?.[0]?.currency_code || 'INR')}</span>
                 </div>
               )}
               <div style={{
@@ -627,7 +617,7 @@ export const Cart: React.FC<CartProps> = ({
                 fontSize: '14px'
               }}>
                 <span>Tax:</span>
-                <span>{formatPrice(cart?.tax_amount || 0, cart?.currency_code || cart?.items?.[0]?.currency_code || 'INR')}</span>
+                <span>{formatPrice(cart?.tax_total || 0, cart?.currency_code || cart?.items?.[0]?.currency_code || 'INR')}</span>
               </div>
               <div style={{
                 display: 'flex',
@@ -975,7 +965,6 @@ export const Cart: React.FC<CartProps> = ({
               <button
                 onClick={() => {
                   setIsCustomerValidationOpen(false)
-                  setPendingPaymentMethod(null)
                 }}
                 style={{
                   padding: '10px 20px',
