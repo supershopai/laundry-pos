@@ -13,7 +13,7 @@
     "medusa"
   ],
   "scripts": {
-    "predeploy": "medusa db:migrate",
+    "predeploy": "medusa db:migrate && medusa db:seed",
     "build": "medusa build && npx medusa build --admin-only && npm run postbuild",
     "postbuild": "node scripts/create-server-entry.js",
     "seed": "medusa exec ./src/scripts/seed.ts",
@@ -41,7 +41,6 @@
     "@mikro-orm/migrations": "6.4.3",
     "@mikro-orm/postgresql": "6.4.3",
     "@mui/material": "^6.1.2",
-    "@rsc-labs/medusa-store-analytics-v2": "^0.1.4",
     "awilix": "^8.0.1",
     "express": "^4.18.2",
     "pdfkit": "^0.15.1",
@@ -49,8 +48,7 @@
     "pg": "^8.13.0",
     "razorpay": "^2.9.6",
     "react-hook-form": "^7.53.0",
-    "react-razorpay": "^3.0.1",
-    "recharts": "^2.13.3"
+    "react-razorpay": "^3.0.1"
   },
   "devDependencies": {
     "@medusajs/test-utils": "2.10.1",

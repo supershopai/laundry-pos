@@ -37,10 +37,5 @@ module.exports = defineConfig({
       resolve: "@medusajs/medusa/payment"
     }
   ],
-  plugins: [
-    {
-      resolve: "@rsc-labs/medusa-store-analytics-v2",
-      options: {}
-    }
-  ]
+  plugins: []
 })

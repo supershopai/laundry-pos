@@ -12,6 +12,7 @@ async function initializeMedusa() {
     
     // Then initialize Express with Medusa
     await expressLoader({ app, container })
+    console.log('🚀 Medusa server initialized successfully!')
   } catch (error) {
     console.error("Failed to initialize Medusa:", error)
   }

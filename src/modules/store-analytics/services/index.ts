@@ -1,6 +1,0 @@
-export * from "./customersAnalytics"
-export * from "./marketingAnalytics"
-export * from "./ordersAnalytics"
-export * from "./productsAnalytics"
-export * from "./reportsAnalytics"
-export * from "./salesAnalytics"
