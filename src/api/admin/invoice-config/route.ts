@@ -10,7 +10,7 @@ export async function GET(
   req: MedusaRequest,
   res: MedusaResponse
 ) {
-  const svc = req.scope.resolve(INVOICE_MODULE)
+  const svc = req.scope.resolve(INVOICE_MODULE) as any
   const configs = await svc.listInvoiceConfigs()
   const latest = Array.isArray(configs) && configs.length
     ? configs.reduce((a: any, b: any) => {
@@ -49,7 +49,7 @@ export const PostInvoiceConfigSchema = z.object({
     })
 
   // Return the latest config after update/creation
-  const svc = req.scope.resolve(INVOICE_MODULE)
+  const svc = req.scope.resolve(INVOICE_MODULE) as any
   const configs = await svc.listInvoiceConfigs()
   const latest = Array.isArray(configs) && configs.length
     ? configs.reduce((a: any, b: any) => {

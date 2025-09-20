@@ -11,7 +11,7 @@ export type GenerateInvoicePdfStepInput = {
 export const generateInvoicePdfStep = createStep(
   "generate-invoice-pdf",
   async (input: GenerateInvoicePdfStepInput, { container }) => {
-    const invoiceGeneratorService = container.resolve(INVOICE_MODULE)
+    const invoiceGeneratorService = container.resolve(INVOICE_MODULE) as any
 
     const previousInv = await invoiceGeneratorService.retrieveInvoice(
       input.invoice_id
@@ -32,7 +32,7 @@ export const generateInvoicePdfStep = createStep(
       return
     }
 
-    const invoiceGeneratorService = container.resolve(INVOICE_MODULE)
+    const invoiceGeneratorService = container.resolve(INVOICE_MODULE) as any
 
     await invoiceGeneratorService.updateInvoices({
       id: previousInv.id,
@@ -49,7 +49,7 @@ export type GenerateThermalOrderPdfStepInput = {
 export const generateThermalOrderPdfStep = createStep(
   "generate-thermal-order-pdf",
   async (input: GenerateThermalOrderPdfStepInput, { container }) => {
-    const svc = container.resolve(INVOICE_MODULE)
+    const svc = container.resolve(INVOICE_MODULE) as any
     const pdf = await svc.generateThermalOrderPdf({ order: input.order, items: input.items }, container)
     return new StepResponse({ pdf_buffer: pdf })
   }
@@ -62,7 +62,7 @@ export type GenerateGarmentTokenPdfStepInput = {
 export const generateGarmentTokenPdfStep = createStep(
   "generate-garment-token-pdf",
   async (input: GenerateGarmentTokenPdfStepInput, { container }) => {
-    const svc = container.resolve(INVOICE_MODULE)
+    const svc = container.resolve(INVOICE_MODULE) as any
     const pdf = await svc.generateGarmentTokenPdf({ order: input.order })
     return new StepResponse({ pdf_buffer: pdf })
   }

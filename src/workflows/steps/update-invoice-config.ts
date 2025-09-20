@@ -14,7 +14,7 @@ type StepInput = {
 export const updateInvoiceConfigStep = createStep(
   "update-invoice-config",
   async (input: StepInput = {}, { container }) => {
-    const invoiceGeneratorService = container.resolve(INVOICE_MODULE)
+    const invoiceGeneratorService = container.resolve(INVOICE_MODULE) as any
 
     const { id, ...updateData } = input || {}
 
@@ -48,7 +48,7 @@ export const updateInvoiceConfigStep = createStep(
       return
     }
 
-    const invoiceGeneratorService = container.resolve(INVOICE_MODULE)
+    const invoiceGeneratorService = container.resolve(INVOICE_MODULE) as any
 
     await invoiceGeneratorService.updateInvoiceConfigs({
       id: prevInvoiceConfig.id,

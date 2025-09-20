@@ -13,9 +13,8 @@
     "medusa"
   ],
   "scripts": {
-    "predeploy": "medusa db:migrate && medusa db:seed",
-    "build": "medusa build && npx medusa build --admin-only && npm run postbuild",
-    "postbuild": "node scripts/create-server-entry.js",
+    "predeploy": "medusa db:migrate",
+    "build": "medusa build",
     "seed": "medusa exec ./src/scripts/seed.ts",
     "start": "medusa start",
     "dev": "medusa develop",

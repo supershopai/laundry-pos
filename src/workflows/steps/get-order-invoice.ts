@@ -9,7 +9,7 @@ type StepInput = {
 export const getOrderInvoiceStep = createStep(
   "get-order-invoice",
   async ({ order_id }: StepInput, { container }) => {
-    const invoiceGeneratorService = container.resolve(INVOICE_MODULE)
+    const invoiceGeneratorService = container.resolve(INVOICE_MODULE) as any
     let [invoice] = await invoiceGeneratorService.listInvoices({
       order_id,
       status: InvoiceStatus.LATEST,
@@ -36,7 +36,7 @@ export const getOrderInvoiceStep = createStep(
     if (!created_invoice || !invoice_id) {
       return
     }
-    const invoiceGeneratorService = container.resolve(INVOICE_MODULE)
+    const invoiceGeneratorService = container.resolve(INVOICE_MODULE) as any
 
     invoiceGeneratorService.deleteInvoices(invoice_id)
   }
